@@ -2,7 +2,7 @@ name: 🖥️ Lunafy Turnstile 自动续期
 
 on:
   schedule:
-    - cron: '* 2 * * *'   
+    - cron: '0 2 * * *'   
   workflow_dispatch:         # 支持手动触发
 
 jobs:
