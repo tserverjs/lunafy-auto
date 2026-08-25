@@ -1,0 +1,68 @@
+name: 🖥️ Lunafy Turnstile 自动续期
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # 每 2 小时检查一次
+  workflow_dispatch:         # 支持手动触发
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 安装系统依赖（Chrome + xvfb）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb google-chrome-stable
+
+      - name: 📦 安装 Python 依赖
+        run: |
+          pip install seleniumbase requests
+          seleniumbase install chromedriver latest
+
+      - name: 🌐 启动 GOST 代理隧道
+        env:
+          GOST_PROXY: ${{ secrets.GOST_PROXY }}
+        run: |
+          if [ -z "${GOST_PROXY}" ]; then
+            echo "❌ 未配置 GOST_PROXY"
+            exit 1
+          fi
+          GOST_VERSION=$(curl -s https://api.github.com/repos/go-gost/gost/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | tr -d 'v')
+          echo "📦 GOST 版本: $GOST_VERSION"
+          wget -q "https://github.com/go-gost/gost/releases/download/v${GOST_VERSION}/gost_${GOST_VERSION}_linux_amd64.tar.gz"
+          tar -xzf gost_${GOST_VERSION}_linux_amd64.tar.gz
+          chmod +x ./gost
+          nohup ./gost -L socks5://:40000 -F "${GOST_PROXY}" > gost.log 2>&1 &
+          sleep 6
+          EXIT_IP=$(curl -s --max-time 6 --proxy socks5://127.0.0.1:40000 https://api.ipify.org || true)
+          if [ -z "${EXIT_IP}" ]; then
+            echo "❌ 代理隧道连接失败"
+            cat gost.log
+            exit 1
+          fi
+          echo "✅ 代理就绪，出口 IP: ${EXIT_IP}"
+
+      - name: 🔍 运行 Lunafy 监控续期脚本
+        env:
+          LUNAFY_COOKIES: ${{ secrets.LUNAFY_COOKIES }}
+          WECHAT_WEBHOOK_KEY: ${{ secrets.WECHAT_WEBHOOK_KEY }}
+        run: |
+          # 使用 xvfb-run 提供虚拟显示，供 UC GUI 点击验证码
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" python renew-auto.py
+
+      - name: 📷 上传调试截图
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunafy-screenshots-${{ github.run_id }}
+          path: "*.png"
+          retention-days: 5
