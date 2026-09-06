@@ -210,8 +210,15 @@ def main():
         return
 
     # 转成 Playwright cookie 格式
+    # sameSite 归一化：Playwright 只认 Strict/Lax/None（首字母大写）
+    SS_MAP = {"strict": "Strict", "lax": "Lax", "none": "None",
+              "no_restriction": "None", "unspecified": "Lax"}
     cookies = []
     for c in cookies_raw:
+        raw_ss = str(c.get("sameSite", "Lax") or "Lax").strip()
+        same_site = SS_MAP.get(raw_ss.lower())
+        if same_site is None:
+            same_site = raw_ss if raw_ss in ("Strict", "Lax", "None") else "Lax"
         cookies.append({
             "name": c.get("name", ""),
             "value": c.get("value", ""),
@@ -219,7 +226,7 @@ def main():
             "path": "/",
             "secure": True,
             "httpOnly": bool(c.get("httpOnly", False)),
-            "sameSite": c.get("sameSite", "Lax"),
+            "sameSite": same_site,
         })
 
     # ========== 启动 CloakBrowser（headed + xvfb，Turnstile 通过率最高）==========
