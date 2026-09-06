@@ -228,7 +228,6 @@ def main():
         "proxy": {"server": PROXY_SERVER},
         "humanize": True,   # 类人鼠标/键盘行为
         "locale": "zh-CN",
-        "viewport": {"width": 1920, "height": 1080},
         "args": ["--window-size=1920,1080"],
     }
     if LICENSE_KEY:
