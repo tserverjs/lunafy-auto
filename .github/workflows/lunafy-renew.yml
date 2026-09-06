@@ -29,6 +29,7 @@ jobs:
         run: |
           pip install cloakbrowser requests
           python -m cloakbrowser install
+          python -m playwright install ffmpeg
 
       - name: 🌐 启动 GOST 代理隧道
         env:
